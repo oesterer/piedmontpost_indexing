@@ -34,7 +34,7 @@ GitHub may delay scheduled runs. The hosted job uses macOS for Swift/PDFKit and 
 
 Each run checks out both repositories, tests the frontend from the public checkout, discovers issues, processes only new/missing PDFs, generates the indexes, and verifies all output against cache. The cutoff for quarterly files is calculated automatically in Los Angeles time; no weekly configuration edits are needed.
 
-After successful verification, cache progress is committed privately. If indexing succeeded and publishing is enabled, only generated `manifest.json` and referenced JSON/compression sidecars are copied into the website checkout. Existing frontend files and older immutable index generations remain untouched. If files changed, the job commits and pushes them with `SEARCH_SITE_TOKEN`. That public commit triggers Pages. If nothing changed, no public commit or deployment occurs.
+After successful verification, cache progress is committed privately. If indexing succeeded and publishing is enabled, only generated `manifest.json` and referenced JSON indexes are copied into the website checkout. Existing frontend files and older immutable index generations remain untouched. If files changed, the job commits and pushes them with `SEARCH_SITE_TOKEN`. That public commit triggers Pages. If nothing changed, no public commit or deployment occurs.
 
 Private cache commits do not trigger another indexing run: the indexer has only scheduled/manual triggers. Its default token is scoped to the indexing checkout; the website checkout uses the separately scoped token.
 
@@ -49,3 +49,5 @@ If login/discovery fails, production remains available. Check whether the archiv
 ## Git history
 
 Moving files does not erase their history from the original public repository. Older cache data and scripts remain in its existing commits unless a separate history cleanup is performed. Published search indexes are intentionally public regardless of where the private cache lives. Large full rebuilds grow private Git history, whereas ordinary weekly updates add small per-issue files. Never combine the cache into one enormous JSON file.
+
+Only JSON index files are generated and published. Legacy `.json.gz` and `.json.br` files are removed automatically from generated output and the public checkout.

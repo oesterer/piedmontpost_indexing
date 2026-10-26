@@ -79,8 +79,10 @@ npm test
 npm run verify:indexes
 ```
 
-Tests exercise incremental behavior, retries, replacement PDFs, headline/subtitle handling, automatic quarter boundaries, publishing/compression, browser search sessions, worker/UI behavior, and copying generated data without overwriting frontend code. Tests require the website checkout; index verification requires generated `output/` (run `publish:indexes` first on a fresh checkout).
+Tests exercise incremental behavior, retries, replacement PDFs, headline/subtitle handling, automatic quarter boundaries, JSON publishing, browser search sessions, worker/UI behavior, and copying generated data without overwriting frontend code. Tests require the website checkout; index verification requires generated `output/` (run `publish:indexes` first on a fresh checkout).
 
 `verify:indexes` checks every generated page, title, and PDF URL against the persistent cache. Search itself remains entirely client-side; GitHub-hosted indexing is maintenance only.
 
 For staff-friendly scheduled and manual operation, see **[AUTOMATION.md](AUTOMATION.md)**.
+
+Only JSON index files are generated and published. Legacy `.json.gz` and `.json.br` files are removed automatically from generated output and the public checkout.

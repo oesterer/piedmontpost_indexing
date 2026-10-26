@@ -3,8 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
-import {gzipSync,brotliCompressSync,constants} from 'node:zlib';
 import {ROOT,SITE_DIR,OUTPUT_DIR} from './paths.mjs';
+import {removeSidecars} from './remove-sidecars.mjs';
 const digest=value=>createHash('sha256').update(value).digest('hex');
 export function issueId(issue){const url=new URL(issue.sourceUrl||issue.file);let pathname=url.pathname;try{pathname=decodeURIComponent(pathname);}catch{}return digest(url.origin+pathname);}
 // Newspaper calendar, independent of the runner's timezone. On the first day
@@ -63,20 +63,12 @@ export async function publishIndexes(index,{outputDir=OUTPUT_DIR,settings,now=ne
   }
   const contents=Buffer.from(JSON.stringify({version:1,id:group.id,issues:group.issues,pages:group.pages})+'\n');
   const hash=digest(contents),filename=group.id+'.'+hash.slice(0,16)+'.json';
-  const zipped=gzipSync(contents,{level:9});
-  const brotli=brotliCompressSync(contents,{params:{[constants.BROTLI_PARAM_QUALITY]:5}});
   const target=path.join(outputDir,'indexes',filename);
   // Content-addressed files are immutable. Keep old generations for open tabs.
   const previous=await fs.readFile(target).catch(error=>{if(error.code!=='ENOENT')throw error;return null;});
   if(previous&&!previous.equals(contents))throw Error('Immutable index collision: '+filename);
   if(!previous)await atomic(target,contents);
-  // Compression is a representation of the JSON, not its content identity.
-  // Keep local output and descriptor sizes consistent after a Node/zlib upgrade.
-  for(const [suffix,bytes]of [['.gz',zipped],['.br',brotli]]){
-   const existing=await fs.readFile(target+suffix).catch(error=>{if(error.code!=='ENOENT')throw error;return null;});
-   if(!existing?.equals(bytes))await atomic(target+suffix,bytes);
-  }
-  descriptors.push({id:group.id,kind:group.kind,url:'indexes/'+filename,from:group.from,to:group.to,latestIssue:group.issues[0].date,oldestIssue:group.issues.at(-1).date,issueCount:group.issues.length,pageCount:group.pages.length,bytes:contents.length,gzipBytes:zipped.length,brotliBytes:brotli.length,sha256:hash});
+  descriptors.push({id:group.id,kind:group.kind,url:'indexes/'+filename,from:group.from,to:group.to,latestIssue:group.issues[0].date,oldestIssue:group.issues.at(-1).date,issueCount:group.issues.length,pageCount:group.pages.length,bytes:contents.length,sha256:hash});
  }
  descriptors.sort((a,b)=>b.latestIssue.localeCompare(a.latestIssue)||a.id.localeCompare(b.id));
  const issues=[...issuesById.values()].sort((a,b)=>b.date.localeCompare(a.date)||a.id.localeCompare(b.id));
@@ -88,6 +80,7 @@ export async function publishIndexes(index,{outputDir=OUTPUT_DIR,settings,now=ne
   const {generatedAt:newTime,...newContent}=manifest;
   if(JSON.stringify(oldContent)===JSON.stringify(newContent))manifest.generatedAt=oldTime;
  } catch(error) {if(error.code!=='ENOENT')throw error;}
+ await removeSidecars(path.join(outputDir,'indexes'));
  // The manifest is the final write: every referenced index already exists.
  await atomic(path.join(outputDir,'manifest.json'),JSON.stringify(manifest)+'\n');
  console.log(`Published ${descriptors.filter(d=>d.kind==='quarterly').length} quarterly and ${descriptors.filter(d=>d.kind==='weekly').length} weekly indexes; ${issues.length} issues, ${index.pages.length} pages.`);

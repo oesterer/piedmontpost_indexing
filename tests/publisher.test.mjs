@@ -1,15 +1,15 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {gunzipSync,brotliDecompressSync,gzipSync}from'node:zlib';
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';
 import {publishIndexes,bucketFor,lastCompletedQuarter}from'../scripts/publish-indexes.mjs';
 const now=new Date('2026-07-01T12:00:00Z');
 const settings={batchSize:20,memoryCacheBytes:16777216};
 function input(){const issues=['2024-12-25','2026-06-30','2026-07-01','2026-10-14'].map(date=>({date,file:'https://example.org/'+date+'.pdf',pages:1}));return {issues,pages:issues.map(i=>({...i,page:1,text:'Original text '+i.date}))};}
 test('quarter cutoff is inclusive and all later issues stay weekly',()=>{assert.equal(bucketFor('2026-06-30',lastCompletedQuarter(now)).id,'2026-Q2');assert.equal(bucketFor('2026-07-01',lastCompletedQuarter(now)).kind,'weekly');assert.equal(bucketFor('2024-12-25').to,'2024-12-31');});
-test('publishes mixed immutable files, compression variants and manifest without duplicate pages',async t=>{
+test('publishes mixed immutable JSON files and manifest without duplicate pages',async t=>{
  const outputDir=await fs.mkdtemp(path.join(os.tmpdir(),'piedmont-publish-'));t.after(()=>fs.rm(outputDir,{recursive:true,force:true}));
  const index=input(),first=await publishIndexes(index,{outputDir,settings,now});
  assert.equal(first.indexes.length,4);assert.equal(first.indexes.filter(e=>e.kind==='quarterly').length,2);assert.equal(first.indexes[0].latestIssue,'2026-10-14');
  let count=0;
- for(const e of first.indexes){const bytes=await fs.readFile(path.join(outputDir,e.url));assert.equal(bytes.length,e.bytes);assert.deepEqual(gunzipSync(await fs.readFile(path.join(outputDir,e.url+'.gz'))),bytes);assert.deepEqual(brotliDecompressSync(await fs.readFile(path.join(outputDir,e.url+'.br'))),bytes);count+=JSON.parse(bytes).pages.length;}
+ for(const e of first.indexes){const bytes=await fs.readFile(path.join(outputDir,e.url));assert.equal(bytes.length,e.bytes);assert(!('gzipBytes' in e));assert(!('brotliBytes' in e));count+=JSON.parse(bytes).pages.length;}
  assert.equal(count,4);const second=await publishIndexes(index,{outputDir,settings,now});assert.equal(second.generatedAt,first.generatedAt);assert.deepEqual(second.indexes.map(e=>e.url),first.indexes.map(e=>e.url));
  const next={date:'2026-10-21',file:'https://example.org/new.pdf',pages:1};index.issues.push(next);index.pages.push({...next,page:1,text:'New weekly issue'});
  const third=await publishIndexes(index,{outputDir,settings,now});assert.equal(third.indexes.length,5);for(const e of first.indexes)assert(third.indexes.some(x=>x.url===e.url));
@@ -39,14 +39,13 @@ test('publication consolidates a completed quarter without adding a PDF',async t
  assert.equal(after.issueCount,before.issueCount);assert.equal(after.pageCount,before.pageCount);
 });
 
-test('republishing refreshes compression sidecars and keeps descriptor sizes accurate',async t=>{
- const outputDir=await fs.mkdtemp(path.join(os.tmpdir(),'piedmont-compression-'));t.after(()=>fs.rm(outputDir,{recursive:true,force:true}));
- const first=await publishIndexes(input(),{outputDir,settings,now});
- const entry=first.indexes[0],raw=await fs.readFile(path.join(outputDir,entry.url));
- await fs.writeFile(path.join(outputDir,entry.url+'.gz'),gzipSync(raw,{level:1}));
- await fs.rm(path.join(outputDir,entry.url+'.br'));
- const second=await publishIndexes(input(),{outputDir,settings,now});
- assert.equal((await fs.stat(path.join(outputDir,entry.url+'.gz'))).size,second.indexes[0].gzipBytes);
- assert.equal((await fs.stat(path.join(outputDir,entry.url+'.br'))).size,second.indexes[0].brotliBytes);
- assert.deepEqual(await fs.readFile(path.join(outputDir,entry.url+'.gz')),gzipSync(raw,{level:9}));
+test('publication removes legacy sidecars and creates only JSON indexes',async t=>{
+ const outputDir=await fs.mkdtemp(path.join(os.tmpdir(),'piedmont-json-only-'));t.after(()=>fs.rm(outputDir,{recursive:true,force:true}));
+ await fs.mkdir(path.join(outputDir,'indexes'));
+ await fs.writeFile(path.join(outputDir,'indexes/old.json.gz'),'obsolete gzip');
+ await fs.writeFile(path.join(outputDir,'indexes/old.json.br'),'obsolete brotli');
+ await fs.writeFile(path.join(outputDir,'indexes/old.json'),'keep JSON');
+ await publishIndexes(input(),{outputDir,settings,now});
+ const files=await fs.readdir(path.join(outputDir,'indexes'));
+ assert(files.every(name=>name.endsWith('.json')));assert(files.includes('old.json'));
 });

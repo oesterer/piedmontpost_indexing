@@ -19,4 +19,4 @@ assert.equal(seenIssues.size,manifest.issueCount);assert.equal(count,expected.si
 for(const issue of manifest.issues){assert(seenIssues.has(issue.id));assert(manifest.indexes.some(e=>e.id===issue.indexId));}
 const newest=manifest.indexes[0];
 console.log(`Verified ${manifest.indexes.length} indexes: ${seenIssues.size} unique issues, ${count} unique pages; all text, titles and PDF URLs match the copied cache.`);
-console.log(`Initial data: manifest ${Buffer.byteLength(JSON.stringify(manifest))} bytes + latest index ${newest.bytes} bytes (${newest.gzipBytes} bytes with gzip).`);
+console.log(`Initial data: manifest ${Buffer.byteLength(JSON.stringify(manifest))} bytes + latest index ${newest.bytes} bytes.`);
