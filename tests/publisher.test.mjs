@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {gunzipSync,brotliDecompressSync}from'node:zlib';
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import {gunzipSync,brotliDecompressSync,gzipSync}from'node:zlib';
 import {publishIndexes,bucketFor,lastCompletedQuarter}from'../scripts/publish-indexes.mjs';
 const now=new Date('2026-07-01T12:00:00Z');
 const settings={batchSize:20,memoryCacheBytes:16777216};
@@ -37,4 +37,16 @@ test('publication consolidates a completed quarter without adding a PDF',async t
  assert.equal(after.quarterThrough,'2026-09-30');assert(after.indexes.some(e=>e.kind==='quarterly'&&e.id==='2026-Q3'));
  assert(!after.indexes.some(e=>e.kind==='weekly'&&e.from==='2026-07-01'));
  assert.equal(after.issueCount,before.issueCount);assert.equal(after.pageCount,before.pageCount);
+});
+
+test('republishing refreshes compression sidecars and keeps descriptor sizes accurate',async t=>{
+ const outputDir=await fs.mkdtemp(path.join(os.tmpdir(),'piedmont-compression-'));t.after(()=>fs.rm(outputDir,{recursive:true,force:true}));
+ const first=await publishIndexes(input(),{outputDir,settings,now});
+ const entry=first.indexes[0],raw=await fs.readFile(path.join(outputDir,entry.url));
+ await fs.writeFile(path.join(outputDir,entry.url+'.gz'),gzipSync(raw,{level:1}));
+ await fs.rm(path.join(outputDir,entry.url+'.br'));
+ const second=await publishIndexes(input(),{outputDir,settings,now});
+ assert.equal((await fs.stat(path.join(outputDir,entry.url+'.gz'))).size,second.indexes[0].gzipBytes);
+ assert.equal((await fs.stat(path.join(outputDir,entry.url+'.br'))).size,second.indexes[0].brotliBytes);
+ assert.deepEqual(await fs.readFile(path.join(outputDir,entry.url+'.gz')),gzipSync(raw,{level:9}));
 });
