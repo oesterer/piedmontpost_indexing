@@ -25,10 +25,13 @@ To republish a site after a Pages failure, run **Deploy search website** in the 
 
 ## Schedule and processing
 
-Cron times use UTC:
+Cron times use UTC. Automated runs occur on **Wednesdays only in fixed PST (UTC−8)**:
 
-- Daily at 15:17 UTC: **08:17 PDT / 07:17 PST**, including the Thursday fallback.
-- Wednesdays at 16:17–23:17 UTC plus Thursdays at 00:17–02:17 UTC: hourly on Wednesday **09:17–19:17 PDT / 08:17–18:17 PST**.
+- **10:00 a.m. PST** → Wednesday 18:00 UTC.
+- **2:00 p.m. PST** → Wednesday 22:00 UTC.
+- **11:00 p.m. PST** → Thursday 07:00 UTC.
+
+These are fixed standard-time offsets, not daylight-saving adjustments. During PDT, the local clock times are Wednesday 11 a.m., Wednesday 3 p.m., and Thursday midnight. Manual runs remain available at any time.
 
 GitHub may delay scheduled runs. The hosted job uses macOS for Swift/PDFKit and installs Playwright Chromium automatically, so staff machines can use any OS. Private macOS runner usage can incur GitHub charges; set a billing budget and adjust frequency if needed. Public-repository schedules can be disabled after 60 days without activity; a private indexing repo avoids that particular public-repository behavior.
 

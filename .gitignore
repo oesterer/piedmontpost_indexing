@@ -8,3 +8,4 @@ cache/issues/*
 .env.*
 .DS_Store
 output/
+resume.sh

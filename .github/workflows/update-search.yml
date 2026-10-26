@@ -12,10 +12,10 @@ on:
         type: boolean
         default: true
   schedule:
-    # UTC: daily 07:17 PST / 08:17 PDT, plus Wednesday release-window checks.
-    - cron: '17 15 * * *'
-    - cron: '17 16-23 * * 3'
-    - cron: '17 0-2 * * 4'
+    # Fixed PST (UTC-8): Wednesday 10:00, 14:00, and 23:00.
+    # The final run falls on Thursday in UTC, but Wednesday in PST.
+    - cron: '0 18,22 * * 3'
+    - cron: '0 7 * * 4'
 
 permissions:
   contents: write
