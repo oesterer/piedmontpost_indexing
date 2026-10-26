@@ -67,7 +67,15 @@ export async function publishIndexes(index,{outputDir=OUTPUT_DIR,settings,now=ne
   const brotli=brotliCompressSync(contents,{params:{[constants.BROTLI_PARAM_QUALITY]:5}});
   const target=path.join(outputDir,'indexes',filename);
   // Content-addressed files are immutable. Keep old generations for open tabs.
-  try{await fs.access(target);}catch{await atomic(target,contents);await atomic(target+'.gz',zipped);await atomic(target+'.br',brotli);}
+  const previous=await fs.readFile(target).catch(error=>{if(error.code!=='ENOENT')throw error;return null;});
+  if(previous&&!previous.equals(contents))throw Error('Immutable index collision: '+filename);
+  if(!previous)await atomic(target,contents);
+  // Compression is a representation of the JSON, not its content identity.
+  // Keep local output and descriptor sizes consistent after a Node/zlib upgrade.
+  for(const [suffix,bytes]of [['.gz',zipped],['.br',brotli]]){
+   const existing=await fs.readFile(target+suffix).catch(error=>{if(error.code!=='ENOENT')throw error;return null;});
+   if(!existing?.equals(bytes))await atomic(target+suffix,bytes);
+  }
   descriptors.push({id:group.id,kind:group.kind,url:'indexes/'+filename,from:group.from,to:group.to,latestIssue:group.issues[0].date,oldestIssue:group.issues.at(-1).date,issueCount:group.issues.length,pageCount:group.pages.length,bytes:contents.length,gzipBytes:zipped.length,brotliBytes:brotli.length,sha256:hash});
  }
  descriptors.sort((a,b)=>b.latestIssue.localeCompare(a.latestIssue)||a.id.localeCompare(b.id));
