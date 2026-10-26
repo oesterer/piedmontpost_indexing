@@ -1,0 +1,130 @@
+name: Update newspaper search
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Re-download and re-extract every issue (normally leave unchecked)
+        type: boolean
+        default: false
+      publish:
+        description: Push validated indexes to the public search repository
+        type: boolean
+        default: true
+  schedule:
+    # UTC: daily 07:17 PST / 08:17 PDT, plus Wednesday release-window checks.
+    - cron: '17 15 * * *'
+    - cron: '17 16-23 * * 3'
+    - cron: '17 0-2 * * 4'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: newspaper-search-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: macos-15
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: indexer
+    env:
+      SEARCH_SITE_DIR: ${{ github.workspace }}/site
+      SITE_REPOSITORY: ${{ vars.SEARCH_SITE_REPOSITORY || format('{0}/piedmontpost', github.repository_owner) }}
+      SITE_BRANCH: ${{ vars.SEARCH_SITE_BRANCH || 'main' }}
+      PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+    steps:
+      - name: Check out indexing repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: indexer
+      - name: Check configuration
+        env:
+          PIEDMONT_ARCHIVE_PASSWORD: ${{ secrets.PIEDMONT_ARCHIVE_PASSWORD }}
+          SEARCH_SITE_TOKEN: ${{ secrets.SEARCH_SITE_TOKEN }}
+        run: |
+          test -n "$PIEDMONT_ARCHIVE_PASSWORD" || { echo '::error::Set the PIEDMONT_ARCHIVE_PASSWORD repository secret.'; exit 1; }
+          test -n "$SEARCH_SITE_TOKEN" || { echo '::error::Set SEARCH_SITE_TOKEN with Contents read/write permission on the public repository.'; exit 1; }
+          git ls-files --error-unmatch cache/manifest.json >/dev/null || { echo '::error::Commit the incremental cache first.'; exit 1; }
+      - name: Check out public search repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.SITE_REPOSITORY }}
+          ref: ${{ env.SITE_BRANCH }}
+          path: site
+          token: ${{ secrets.SEARCH_SITE_TOKEN }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: indexer/package-lock.json
+      - run: npm ci
+      - run: npx playwright install chromium
+      - name: Run tests against public search checkout
+        run: npm test
+      - name: Discover and index online issues
+        id: index
+        continue-on-error: true
+        env:
+          PIEDMONT_ARCHIVE_PASSWORD: ${{ secrets.PIEDMONT_ARCHIVE_PASSWORD }}
+          REBUILD: ${{ inputs.rebuild == true }}
+        run: |
+          if [ "$REBUILD" = true ]; then
+            npm run index:archive -- --rebuild
+          else
+            npm run index:archive
+          fi
+      - name: Verify generated indexes
+        id: verify
+        run: npm run verify:indexes
+      - name: Save verified incremental cache
+        if: always() && steps.verify.outcome == 'success'
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add cache/manifest.json cache/issues
+          if ! git diff --cached --quiet; then
+            git commit -m "Update newspaper issue cache [skip ci]"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+      - name: Copy generated indexes to public repository
+        if: steps.index.outcome == 'success' && env.PUBLISH == 'true'
+        run: npm run publish:site
+      - name: Push updated public indexes (triggers Pages deployment)
+        id: publish
+        if: steps.index.outcome == 'success' && env.PUBLISH == 'true'
+        working-directory: site
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manifest.json indexes
+          if ! git diff --cached --quiet; then
+            git commit -m "Update newspaper search indexes"
+            git push origin "HEAD:$SITE_BRANCH"
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Write run summary
+        if: always()
+        env:
+          INDEX_OUTCOME: ${{ steps.index.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+          PUBLIC_CHANGED: ${{ steps.publish.outputs.changed }}
+        run: |
+          echo '## Newspaper search update' >> "$GITHUB_STEP_SUMMARY"
+          echo "- Indexing: ${INDEX_OUTCOME:-not run}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Verification: ${VERIFY_OUTCOME:-not run}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Public repository update: ${PUBLISH_OUTCOME:-not run}; files changed: ${PUBLIC_CHANGED:-no}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Pages deployment runs separately in $SITE_REPOSITORY." >> "$GITHUB_STEP_SUMMARY"
+      - name: Report indexing failure
+        if: always() && steps.index.outcome == 'failure'
+        run: |
+          echo '::error::Indexing failed. Verified cache progress was saved if available; public indexes were not changed. Rerun to retry missing issues.'
+          exit 1

@@ -1,0 +1,10 @@
+node_modules/
+cache/*
+!cache/manifest.json
+!cache/issues/
+cache/issues/*
+!cache/issues/*.json
+.env
+.env.*
+.DS_Store
+output/
