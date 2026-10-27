@@ -45,7 +45,7 @@ Private cache commits do not trigger another indexing run: the indexer has only 
 
 Only one indexing workflow runs at a time. A separate Pages concurrency group serializes website deployments. Avoid pushing to either default branch during an active update; a concurrent human commit can cause a safe push rejection. Rerun against the newest branches if that happens; no forced history replacement is attempted.
 
-If some PDFs fail, verified private cache progress is saved, the workflow ends red, and public indexes are left unchanged. The next normal run retries missing issues. If verification fails, generated changes are not saved or published. If the public push fails, the private cache is already saved; the next run regenerates and retries the publication. If the public push succeeds but Pages fails, rerun the website deployment workflow and inspect its log.
+If some PDFs fail, verified private cache progress is saved, the workflow ends red, and public indexes are left unchanged. The next normal run retries missing issues and cached issues marked `refreshFailure` after a failed rebuild; older cached text is preserved until its refresh succeeds. If verification fails, generated changes are not saved or published. If the public push fails, the private cache is already saved; the next run regenerates and retries the publication. If the public push succeeds but Pages fails, rerun the website deployment workflow and inspect its log.
 
 If login/discovery fails, production remains available. Check whether the archive password or Wix layout changed. Renew the repository PAT before it expires; set an expiry reminder. Never embed these secrets in a public update button or browser code.
 

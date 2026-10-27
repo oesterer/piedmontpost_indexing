@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 
-test('PDF headings keep smaller decks searchable under the main title', {skip:process.platform!=='darwin'},async()=>{
+test('PDF headings preserve titles and leave service boxes and staff listings unassigned', {skip:process.platform!=='darwin'},async()=>{
  const dir=await mkdtemp(path.join(tmpdir(),'post-headlines-'));
  try{
   const source=(await readFile(new URL('../scripts/index-pdfs.swift',import.meta.url),'utf8')).split('// Single-issue mode')[0];
@@ -31,6 +31,29 @@ assert((articles[0]["text"] as! String).contains(deck))
 // A smaller heading separated by body text is a separate article.
 let separate = [line(0,"First independent headline",35,900,250,26),line(1,body,35,880,135,10),line(2,"Second independent headline",35,850,250,18),line(3,body,35,820,135,10)]
 assert(detectedArticles(lines:separate,bounds:CGRect(x:0,y:0,width:792,height:1224)).count == 2)
+// October 21 page 2: an information box must not claim the masthead below it.
+let articleBody = String(repeating: "The council discussed local community news. ",count:8)
+let serviceLines = [
+ line(0,"A community news story",45.5,900,260,24),
+ line(1,articleBody,45.5,875,260,10),
+ line(2,"Missed Piedmont Post Delivery?",61.1,526.1,228.8,19.35),
+ line(3,String(repeating:"Contact the newspaper for delivery assistance. ",count:4),72.5,500,206,10),
+ line(4,"Publisher & Editor: Gray Cathrall",110.4,356.4,130.3,10.8),
+ line(5,"Executive Editor: Misha Edel",119.2,343.4,112.6,10.8),
+ line(6,"City Editor: Jay Russell",131.4,330.4,88.1,10.8),
+ line(7,"REPORTERS",48,274.5,46.2,7.8),
+ line(8,"Jake Lannon and other contributors",48,265.5,135,7.8)
+]
+let serviceArticles=detectedArticles(lines:serviceLines,bounds:CGRect(x:0,y:0,width:792,height:1224))
+assert(serviceArticles.count == 1)
+assert(serviceArticles[0]["title"] as? String == "A community news story")
+assert(!(serviceArticles[0]["text"] as! String).contains("Misha Edel"))
+assert(!(serviceArticles[0]["text"] as! String).contains("delivery assistance"))
+// Staff-role boundaries work even without a delivery box above the masthead.
+let withoutBox=Array(serviceLines.prefix(2))+Array(serviceLines.suffix(5))
+let withoutBoxArticles=detectedArticles(lines:withoutBox,bounds:CGRect(x:0,y:0,width:792,height:1224))
+assert(withoutBoxArticles.count == 1)
+assert(!(withoutBoxArticles[0]["text"] as! String).contains("Misha Edel"))
 print("headlines passed")
 `;
   const file=path.join(dir,'test.swift');await writeFile(file,source+fixture);

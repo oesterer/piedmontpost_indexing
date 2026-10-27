@@ -35,7 +35,7 @@ To use a different website checkout, set `SEARCH_SITE_DIR` to its absolute path.
 
 ## Cache and incremental behavior
 
-Keep `cache/manifest.json` and `cache/issues/*.json` in Git. They hold successfully extracted page text and detected article titles. A normal run skips PDFs already cached by source URL path. Downloads use a 10-second timeout with two retries; failures are retried on a later run. Program/parade links are ignored.
+Keep `cache/manifest.json` and `cache/issues/*.json` in Git. They hold successfully extracted page text and detected article titles. A normal run skips PDFs already cached by source URL path. Downloads use a 10-second timeout with two retries; failures are retried on a later run. If a rebuild fails for an already-cached issue, the old text remains available and `refreshFailure` is recorded in its manifest entry. A subsequent normal run retries that issue instead of skipping its older cache; successful extraction clears the flag. Program/parade links are ignored.
 
 A successfully indexed current dated link supersedes an unlisted cached URL for the same date. An old cache JSON may remain for recovery but is excluded from publication. Missing dates and failed replacements remain intact. Two PDFs explicitly listed for the same date remain separate.
 
@@ -71,6 +71,10 @@ There is no manually maintained quarter cutoff. Each publication computes the en
 For example, during October–December 2026, the cutoff is September 30, 2026. Starting January 1, 2027, it becomes December 31, 2026. The next publication automatically consolidates Q4, even if no new PDF was added. The computed date is recorded as `quarterThrough` in `manifest.json` as output metadata, not configuration.
 
 Published indexes use content-hashed immutable filenames. Old generations in the public repository are retained so visitors with an older manifest can finish searching. The manifest is copied last. Unchanged polling preserves its timestamp to avoid unnecessary commits/deployments. On a fresh runner, publication compares against the website checkout's manifest.
+
+## Article titles and non-article text
+
+Detected headlines are approximate. Recurring delivery/subscription boxes, publishing instructions, and staff-role listings are treated as non-article layout boundaries. Their full page text remains searchable, but it is not attached to a nearby article title. The search UI already falls back to a neutral page link when a match has no detected article heading. Existing cached issues need re-extraction to receive extractor changes; republishing alone does not recalculate headlines.
 
 ## Validation
 

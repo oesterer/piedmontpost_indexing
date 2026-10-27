@@ -103,3 +103,34 @@ test('current dated replacement retires only unlisted same-date URLs; failed rep
  // Two explicitly listed PDFs on the same date remain available.
  result=await syncIssues({...f,links:[old,replacement,other]});assert.equal(result.index.issues.length,3);
 });
+
+test('failed rebuild preserves old text and the next normal run refreshes only failed issues',async t=>{
+ const f=await fixture(t);await syncIssues({...f,links:[A,B]});
+ const file=path.join(f.cacheDir,'issues',pdfIdentity(A)+'.json');
+ const before=await fs.readFile(file,'utf8');
+ const failed=await syncIssues({...f,links:[A,B],rebuild:true,downloadRetries:0,download:async(url,options)=>{
+  if(url===A)throw Error('Timeout exceeded');return f.download(url,options);
+ }});
+ assert.equal(failed.stats.failed,1);assert.equal(failed.stats.reprocessed,1);assert.equal(failed.index.issues.length,2);
+ assert.equal(await fs.readFile(file,'utf8'),before);
+ let manifest=JSON.parse(await fs.readFile(path.join(f.cacheDir,'manifest.json'),'utf8'));
+ assert.equal(manifest.entries[pdfIdentity(A)].refreshFailure.message,'Timeout exceeded');
+ assert(!manifest.entries[pdfIdentity(B)].refreshFailure);
+ const urls=[];
+ const retried=await syncIssues({...f,links:[A,B],download:async(url,options)=>{urls.push(url);return f.download(url,options);}});
+ assert.deepEqual(urls,[A]);assert.equal(retried.stats.reprocessed,1);assert.equal(retried.stats.skipped,1);
+ manifest=JSON.parse(await fs.readFile(path.join(f.cacheDir,'manifest.json'),'utf8'));
+ assert(!manifest.entries[pdfIdentity(A)].refreshFailure);
+ const completed=await syncIssues({...f,links:[A,B],download:async()=>{throw Error('Must not download successful cache');}});
+ assert.equal(completed.stats.skipped,2);assert.equal(completed.stats.failed,0);
+});
+
+test('repeated extraction failure stays pending across normal runs until extraction succeeds',async t=>{
+ const f=await fixture(t);await syncIssues({...f,links:[A]});
+ const fail={...f,links:[A],extract:async()=>{throw Error('Extraction failed');}};
+ await syncIssues({...fail,rebuild:true});
+ const repeated=await syncIssues(fail);assert.equal(repeated.stats.failed,1);assert.equal(repeated.stats.skipped,0);
+ const manifest=JSON.parse(await fs.readFile(path.join(f.cacheDir,'manifest.json'),'utf8'));
+ assert.equal(manifest.entries[pdfIdentity(A)].refreshFailure.message,'Extraction failed');
+ const success=await syncIssues({...f,links:[A]});assert.equal(success.stats.reprocessed,1);
+});

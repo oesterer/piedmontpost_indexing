@@ -13,6 +13,20 @@ func cleanText(_ value: String) -> String {
  let repaired = String(decoding: Array(value.utf8), as: UTF8.self)
  return repaired.replacingOccurrences(of: "([\\p{L}])[-\u{00AD}]\\s*\\n\\s*([\\p{L}])", with: "$1$2", options: .regularExpression).replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
 }
+// These are useful searchable page content, but are not article headlines.
+// Keep them as layout boundaries so adjacent story headings cannot claim them.
+func isNonArticleHeading(_ text: String) -> Bool {
+ let lower = cleanText(text).lowercased()
+ let labels: Set<String> = ["contributors", "contributing writers", "newspaper staff", "publishing information", "masthead", "production", "production manager", "reporters", "photographers", "columnists", "student writers", "read it in", "read it in the post", "the post"]
+ if labels.contains(lower) { return true }
+ let patterns = [
+  "^missed\\b.*\\bdelivery\\??$",
+  "^piedmont post (?:news rack|at your door)\\b",
+  "^how to (?:get|submit) news (?:in|to) (?:the )?post\\b",
+  "^(?:publisher(?:\\s*(?:&|and)\\s*editor)?|executive editor|city editor|managing editor|editor[- ]in[- ]chief|contributors?|contributing editors?)\\s*:"
+ ]
+ return patterns.contains { lower.range(of: $0, options: .regularExpression) != nil }
+}
 func detectedArticles(_ page: PDFPage) -> [[String: Any]] {
  let bounds = page.bounds(for: .mediaBox)
  guard let selection = page.selection(for: bounds) else { return [] }
@@ -35,7 +49,7 @@ func detectedArticles(lines: [PDFLine], bounds: CGRect) -> [[String: Any]] {
  let excluded: Set<String> = ["piedmont post", "opinion", "sports", "local items", "schools", "features", "arts & entertainment", "real estate", "inside", "our city", "our news", "our paper", "our post", "read it in the post", "advertise in the post", "letters - main", "letters - cont", "classifieds"]
  let candidates = lines.filter { line in
   let lower = line.text.lowercased()
-  return line.size >= max(15, bodySize*1.65) && line.size < bodySize*4.5 && line.box.minY > bounds.height*0.035 && line.box.maxY < bounds.height*0.965 && line.box.minX >= 0 && line.text.count >= 5 && line.text.rangeOfCharacter(from: .letters) != nil && !excluded.contains(lower) && !lower.contains("all city edition") && !lower.contains("advertise") && !lower.contains("piedmont post piedmont post") && !lower.hasPrefix("by ") && !lower.contains("www.") && !lower.contains("http")
+  return (line.size >= max(15, bodySize*1.65) || isNonArticleHeading(line.text)) && line.size < bodySize*4.5 && line.box.minY > bounds.height*0.035 && line.box.maxY < bounds.height*0.965 && line.box.minX >= 0 && line.text.count >= 5 && line.text.rangeOfCharacter(from: .letters) != nil && !excluded.contains(lower) && !lower.contains("all city edition") && !lower.contains("advertise") && !lower.contains("piedmont post piedmont post") && !lower.hasPrefix("by ") && !lower.contains("www.") && !lower.contains("http")
  }.sorted { a,b in abs(a.box.midY-b.box.midY) > 3 ? a.box.midY > b.box.midY : a.box.minX < b.box.minX }
  var groups: [[PDFLine]] = []
  for candidate in candidates {
@@ -55,6 +69,8 @@ func detectedArticles(lines: [PDFLine], bounds: CGRect) -> [[String: Any]] {
   let size = group.map { $0.size }.max() ?? 0
   if let index = blocks.indices.last(where: { index in
    let parent = blocks[index]
+   // A smaller service label is not a subtitle of a nearby article (or vice versa).
+   if isNonArticleHeading(group.map { $0.text }.joined(separator: " ")) != isNonArticleHeading(parent.title.map { $0.text }.joined(separator: " ")) { return false }
    let parentBox = (parent.title + parent.deck).reduce(CGRect.null) { $0.union($1.box) }
    let parentSize = parent.title.map { $0.size }.max() ?? 0
    let gap = parentBox.minY - box.maxY
@@ -75,7 +91,7 @@ func detectedArticles(lines: [PDFLine], bounds: CGRect) -> [[String: Any]] {
   columns.append(x)
  }
  if columns.isEmpty { columns = [bounds.minX] }
- struct Heading { let title: String; let box: CGRect; let left: CGFloat; let right: CGFloat; let subtitle: String }
+ struct Heading { let title: String; let box: CGRect; let left: CGFloat; let right: CGFloat; let subtitle: String; let isArticle: Bool }
  let headings: [Heading] = blocks.compactMap { block in
   let group = block.title
   let box = (group + block.deck).reduce(CGRect.null) { $0.union($1.box) }
@@ -83,10 +99,12 @@ func detectedArticles(lines: [PDFLine], bounds: CGRect) -> [[String: Any]] {
   if title.count < 8 { return nil }
   let left = columns.last(where: { $0 <= box.minX+3 }) ?? box.minX
   let right = columns.first(where: { $0 > box.maxX-3 }).map { $0-5 } ?? bounds.maxX
-  return Heading(title: title, box: box, left: left, right: right, subtitle: block.deck.map { $0.text }.joined(separator: " "))
+  return Heading(title: title, box: box, left: left, right: right, subtitle: block.deck.map { $0.text }.joined(separator: " "), isArticle: !isNonArticleHeading(title))
  }
+ let headingLineIDs = Set(blocks.flatMap { $0.title + $0.deck }.map { $0.id })
  var bodies = Array(repeating: [PDFLine](), count: headings.count)
  for line in lines where line.size <= bodySize*1.4 {
+  if headingLineIDs.contains(line.id) { continue }
   if line.text.hasPrefix("Continued from") || line.text.hasPrefix("See ") || line.text.hasPrefix("By ") { continue }
   let eligible = headings.indices.filter { index in
    let h = headings[index]
@@ -95,6 +113,7 @@ func detectedArticles(lines: [PDFLine], bounds: CGRect) -> [[String: Any]] {
   if let index = eligible.min(by: { headings[$0].box.minY-line.box.midY < headings[$1].box.minY-line.box.midY }) { bodies[index].append(line) }
  }
  return headings.indices.compactMap { index in
+  guard headings[index].isArticle else { return nil }
   let body = bodies[index].sorted { $0.id<$1.id }
   let text = cleanText(([headings[index].subtitle] + body.map { $0.text }).joined(separator: "\n"))
   // Short display slogans and most advertising blocks have little accompanying text.

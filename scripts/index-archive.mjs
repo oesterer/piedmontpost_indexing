@@ -92,13 +92,13 @@ export async function syncIssues({links, cacheDir, download, extract, rebuild=fa
   const previous = manifest.entries[link.key];
   let cached;
   try { cached = await readJSON(file,null); } catch { cached=null; }
-  if (previous && validIssue(cached) && !rebuild) {
+  if (previous && validIssue(cached) && !rebuild && !previous.refreshFailure) {
    previous.sourceUrl=link.url; confirmDate(link,cached.issue.date); stats.skipped++; continue;
   }
   if (attempted>=limit) continue;
   attempted++;
   const name = link.label || path.basename(new URL(link.url).pathname);
-  log('Indexing '+name);
+  log((previous?.refreshFailure?'Retrying failed refresh: ':'Indexing ')+name);
   let temporary;
   try {
    const downloaded = await downloadWithRetry(download,link.url,{
@@ -121,6 +121,13 @@ export async function syncIssues({links, cacheDir, download, extract, rebuild=fa
    confirmDate(link,data.issue.date);
    stats[previous?'reprocessed':'added']++;
   } catch (error) {
+   // Keep the old searchable text, but do not mistake it for a successful
+   // refresh on the next normal run. A successful extraction replaces the entry
+   // above and clears this flag. Issues without any cache are retried naturally.
+   if(previous){
+    previous.refreshFailure={failedAt:new Date().toISOString(),message:error.message};
+    await atomicJSON(manifestFile,manifest);
+   }
    stats.failed++; failures.push({label:name,message:error.message});
    log('Failed '+name+': '+error.message);
   } finally { if(temporary) await fs.rm(temporary,{recursive:true,force:true}); }
@@ -243,7 +250,7 @@ async function makeExtractor(cacheDir) {
    if(!binaryInfo||binaryInfo.mtimeMs<sourceInfo.mtimeMs) {
     const compileCache=path.join(cacheDir,'swift-cache');await fs.mkdir(compileCache,{recursive:true});
     try {await execute('swiftc',['-module-cache-path',compileCache,source,'-o',binary],{env:{...process.env,CLANG_MODULE_CACHE_PATH:compileCache},maxBuffer:4*1024*1024});}
-    catch {throw Error('Swift/PDFKit compilation failed. Run this indexer on macOS with Xcode Command Line Tools installed.');}
+    catch(error) {throw Error('Swift/PDFKit compilation failed:\n'+(error.stderr||error.message).trim().slice(-4000));}
    }
    ready=true;
   }
