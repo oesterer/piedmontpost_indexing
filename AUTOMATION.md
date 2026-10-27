@@ -1,6 +1,6 @@
 # Weekly indexing across two Git repositories
 
-See [SYSTEM-FLOW.md](SYSTEM-FLOW.md) for the system diagram, detailed workflow, and failure paths.
+See [SYSTEM-FLOW.md](SYSTEM-FLOW.md) for the system diagram, detailed workflow, and failure paths. For a learning guide to every YAML and shell line, see [WORKFLOW-EXPLAINED.md](WORKFLOW-EXPLAINED.md).
 
 The **private indexing repository** owns PDF processing, the Git-backed cache, and the scheduled/manual `Update newspaper search` workflow. The **public website repository** owns the search UI, generated indexes at its root, and the separate `Deploy search website` Pages workflow.
 
