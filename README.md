@@ -90,3 +90,5 @@ Tests exercise incremental behavior, retries, replacement PDFs, headline/subtitl
 For staff-friendly scheduled and manual operation, see **[AUTOMATION.md](AUTOMATION.md)**.
 
 Only JSON index files are generated and published. Legacy `.json.gz` and `.json.br` files are removed automatically from generated output and the public checkout.
+
+For diagrams and a detailed explanation of the browser search algorithm, see [CLIENT-SEARCH.md](CLIENT-SEARCH.md).
