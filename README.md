@@ -92,3 +92,8 @@ For staff-friendly scheduled and manual operation, see **[AUTOMATION.md](AUTOMAT
 Only JSON index files are generated and published. Legacy `.json.gz` and `.json.br` files are removed automatically from generated output and the public checkout.
 
 For diagrams and a detailed explanation of the browser search algorithm, see [CLIENT-SEARCH.md](CLIENT-SEARCH.md).
+
+Data and parser references:
+
+- [DATA-FILES.md](DATA-FILES.md): file inventory, field schemas, examples, IDs, hashes and validation.
+- [PDF-PARSING.md](PDF-PARSING.md): Swift/PDFKit extraction, text cleanup, headline detection, subtitle grouping and limitations.
