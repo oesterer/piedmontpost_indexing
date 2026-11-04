@@ -1,0 +1,128 @@
+Run npm test
+
+> test
+> node --test tests/*.test.mjs
+
+TAP version 13
+# Subtest: PDF headings preserve titles and leave service boxes and staff listings unassigned
+ok 1 - PDF headings preserve titles and leave service boxes and staff listings unassigned
+  ---
+  duration_ms: 14690.94075
+  type: 'test'
+  ...
+# Subtest: first run processes PDFs; second run downloads/extracts nothing; a new file alone is processed
+ok 2 - first run processes PDFs; second run downloads/extracts nothing; a new file alone is processed
+  ---
+  duration_ms: 51.014375
+  type: 'test'
+  ...
+# Subtest: duplicate URL parameters do not reindex; refreshed source links reach the output
+ok 3 - duplicate URL parameters do not reindex; refreshed source links reach the output
+  ---
+  duration_ms: 12.766208
+  type: 'test'
+  ...
+# Subtest: limited or incomplete discovery retains previous issues; rebuild refreshes discovered PDFs
+ok 4 - limited or incomplete discovery retains previous issues; rebuild refreshes discovered PDFs
+  ---
+  duration_ms: 35.36175
+  type: 'test'
+  ...
+# Subtest: non-PDF response or extraction failure is not committed and is retried later
+ok 5 - non-PDF response or extraction failure is not committed and is retried later
+  ---
+  duration_ms: 63.207875
+  type: 'test'
+  ...
+# Subtest: missing per-issue cache is repaired when rediscovered
+ok 6 - missing per-issue cache is repaired when rediscovered
+  ---
+  duration_ms: 12.640917
+  type: 'test'
+  ...
+# Subtest: search UI streams results, resumes, ignores obsolete messages, and preserves results on retry
+not ok 29 - search UI streams results, resumes, ignores obsolete messages, and preserves results on retry
+  ---
+  duration_ms: 17.27025
+  type: 'test'
+  location: '/Users/runner/work/piedmontpost_indexing/piedmontpost_indexing/indexer/tests/ui.test.mjs:3:1'
+  failureType: 'testCodeFailure'
+  error: 'window is not defined'
+  code: 'ERR_TEST_FAILURE'
+  name: 'ReferenceError'
+  stack: |-
+    file:///Users/runner/work/piedmontpost_indexing/piedmontpost_indexing/site/app.js:19:1
+    ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    async TestContext.<anonymous> (file:///Users/runner/work/piedmontpost_indexing/piedmontpost_indexing/indexer/tests/ui.test.mjs:12:2)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# [Archive search] Worker initializing; preload latest index only { indexes: 29 }
+# [Archive search] Loading index {
+#   index: '2026-10-28-cb565eed',
+#   url: 'indexes/2026-10-28-cb565eed.e2d5716d71d19523.json',
+#   bytes: 377750
+# }
+# [Archive search] Fetching index {
+#   index: '2026-10-28-cb565eed',
+#   url: 'file:///Users/runner/work/piedmontpost_indexing/piedmontpost_indexing/site/indexes/2026-10-28-cb565eed.e2d5716d71d19523.json',
+#   cache: 'force-cache (browser may use HTTP cache)'
+# }
+# [Archive search] Index ready {
+#   index: '2026-10-28-cb565eed',
+#   pages: 34,
+#   elapsedMs: 41,
+#   cachedFiles: 1,
+#   cachedRawBytes: 377750
+# }
+# [Archive search] Worker ready {}
+# [Archive search] New search requested { id: 1 }
+# [Archive search] Search session created {
+#   query: 'the',
+#   year: '',
+#   issue: '',
+#   mode: 'words',
+#   order: 'newest',
+#   indexes: 29
+# }
+# [Archive search] Search batch started { limit: 20, nextIndex: 0, bufferedResults: 0, delivered: 0 }
+# [Archive search] Index cache hit { index: '2026-10-28-cb565eed', cachedFiles: 1 }
+# [Archive search] Index searched { index: '2026-10-28-cb565eed', pages: 34, matches: 33, elapsedMs: 7 }
+# [Archive search] Results emitted { count: 20, totalDelivered: 20, bufferedResults: 13 }
+# [Archive search] Search paused at result limit { delivered: 20, searched: 1, total: 29, bufferedResults: 13 }
+# [Archive search] Continue requested { id: 1 }
+# [Archive search] Search batch started { limit: 20, nextIndex: 1, bufferedResults: 13, delivered: 20 }
+# [Archive search] Results emitted { count: 13, totalDelivered: 33, bufferedResults: 0 }
+# [Archive search] Loading index {
+#   index: '2026-10-21-0c7d248e',
+#   url: 'indexes/2026-10-21-0c7d248e.da4a62d392835fbe.json',
+#   bytes: 345758
+# }
+# [Archive search] Fetching index {
+#   index: '2026-10-21-0c7d248e',
+#   url: 'file:///Users/runner/work/piedmontpost_indexing/piedmontpost_indexing/site/indexes/2026-10-21-0c7d248e.da4a62d392835fbe.json',
+#   cache: 'force-cache (browser may use HTTP cache)'
+# }
+# [Archive search] Index ready {
+#   index: '2026-10-21-0c7d248e',
+#   pages: 28,
+#   elapsedMs: 3,
+#   cachedFiles: 2,
+#   cachedRawBytes: 723508
+# }
+# Subtest: real worker preloads one file and pauses after its first 20 real archive results
+ok 30 - real worker preloads one file and pauses after its first 20 real archive results
+  ---
+  duration_ms: 159.728209
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 29
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14782.516792
