@@ -1,6 +1,6 @@
 name: Update newspaper search
 
-on:
+on:  
   workflow_dispatch:
     inputs:
       rebuild:
@@ -11,6 +11,8 @@ on:
         description: Push validated indexes to the public search repository
         type: boolean
         default: true
+  repository_dispatch:
+    types: [external-timer-trigger]        
   schedule:
     # Wednesday 07:00 and 10:00 PDT, Thursday 07:00 
     - cron: '0 7,10 * * 3'
