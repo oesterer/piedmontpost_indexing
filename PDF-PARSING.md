@@ -1,5 +1,7 @@
 # How the PDF parsing program works
 
+This document describes the default Swift parser. An opt-in Python implementation is documented in [PYTHON-PARSER.md](PYTHON-PARSER.md).
+
 The parser is [`scripts/index-pdfs.swift`](scripts/index-pdfs.swift). It opens **one local newspaper PDF** and produces an issue-level JSON document containing full page text plus inferred article headings and bodies. It runs during offline indexing; readers’ browsers never execute Swift or parse the PDFs to perform a search.
 
 This guide describes the code inspected on **October 29, 2026**, including subtitle grouping and non-article layout boundaries. The article segmentation is a collection of layout heuristics, not an AI model or a guaranteed reconstruction of the printed articles.

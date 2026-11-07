@@ -2,6 +2,62 @@
 
 This repository contains offline newspaper indexing and automation. The public search website lives separately in **[piedmontpost](https://github.com/oesterer/piedmontpost)** and is served at **https://oesterer.github.io/piedmontpost/**.
 
+## Alternative parser
+
+An opt-in Python/pdfplumber parser is available; **Swift remains the default**. The scheduled GitHub workflow still uses Swift/macOS.
+
+Install the alternative using Python 3.11+:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-python.txt
+npm run test:python
+```
+
+If `python3` is macOS's older system Python, use your newer interpreter to create the environment, such as `/opt/homebrew/bin/python3`. Package downloads were blocked during implementation, so the real-PDF tests must be run after installation before switching production.
+
+Try the local sample without changing any cache or public index:
+
+```sh
+.venv/bin/python scripts/index-pdfs.py --extract-one \
+  "10-21-26 Post v2 - Web.pdf" /tmp/oct21-python.json \
+  "https://example.org/original-issue.pdf" 2026-10-21
+```
+
+That URL is test metadata; substitute the real PDF URL before using output in production. To compare online extraction in isolated, ignored directories:
+
+```sh
+npm run index:archive -- --parser python --browser-channel chrome \
+  --cache-dir cache-python --output-dir output-python
+```
+
+After reviewing results, use the primary cache intentionally:
+
+```sh
+# Incremental update: reuse existing cache; process new or failed issues.
+npm run index:archive -- --parser python --browser-channel chrome
+
+# Re-extract every discovered issue with Python.
+npm run index:archive -- --parser python --browser-channel chrome --rebuild
+
+# Verify and copy the primary generated indexes into the website checkout.
+npm run verify:indexes
+npm run publish:site
+```
+
+Parser choice alone does not invalidate successfully cached issues. `verify:indexes` above checks the primary cache/output, not the isolated `cache-python` comparison.
+
+For the complete local update, including Git updates, tests, commits and pushes:
+
+```sh
+npm run update:local -- --parser python
+# Add --rebuild to re-extract all discovered PDFs.
+```
+
+Use `--python /absolute/path/to/python` or `PDF_PYTHON` to select another interpreter. The default is this repository's `.venv` interpreter when available, then `python3`.
+
+See [PYTHON-PARSER.md](PYTHON-PARSER.md) for details, limitations, tests and the Swift dependency audit.
+
 ## One-command local update
 
 After committing and pushing your code changes, run `npm run update:local` on your Mac. It updates both checkouts, indexes/verifies PDFs, commits the cache, and pushes generated indexes to the public repository. See [LOCAL-UPDATE.md](LOCAL-UPDATE.md) for prerequisites, flags and recovery.
@@ -16,7 +72,7 @@ code/
   piedmontpost_indexing/  # scripts/, tests/, cache/, settings.json
 ```
 
-Indexing requires macOS with Swift/PDFKit (Xcode Command Line Tools), Node.js 22+, and a browser. Install dependencies once:
+The default Swift parser requires macOS with Swift/PDFKit (Xcode Command Line Tools), Node.js 22+, and a browser. The opt-in Python parser supports Linux without Swift; see [PYTHON-PARSER.md](PYTHON-PARSER.md). Install dependencies once:
 
 ```sh
 cd ../piedmontpost_indexing

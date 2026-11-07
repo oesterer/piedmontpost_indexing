@@ -15,10 +15,11 @@ export function runCommand(program,args,{cwd,env=process.env,capture=false,allow
  return {code,stdout:result.stdout||'',stderr:result.stderr||''};
 }
 
-export async function updateLocal({root=ROOT,siteDir=SITE_DIR,rebuild=false,browserChannel='chrome',run=runCommand,log=console.log}={}){
+export async function updateLocal({root=ROOT,siteDir=SITE_DIR,rebuild=false,browserChannel='chrome',parser='swift',python,run=runCommand,log=console.log}={}){
+ if(!['swift','python'].includes(parser))throw Error('--parser must be swift or python');
  root=await fs.realpath(root);siteDir=await fs.realpath(siteDir);
  if(root===siteDir)throw Error('The indexing and public website checkouts must be different repositories.');
- const env={...process.env,SEARCH_SITE_DIR:siteDir};
+ const env={...process.env,SEARCH_SITE_DIR:siteDir,PDF_PARSER_TEST_BACKEND:parser};
  const git=(cwd,args,options={})=>run('git',args,{cwd,env,capture:true,...options});
  const npm=args=>run('npm',args,{cwd:root,env});
  const data={indexer:['cache/manifest.json','cache/issues'],site:['manifest.json','indexes']};
@@ -89,6 +90,8 @@ export async function updateLocal({root=ROOT,siteDir=SITE_DIR,rebuild=false,brow
   log(rebuild?'Rebuilding all discovered issues':'Indexing new issues and retrying failed refreshes');
   const args=['run','index:archive','--'];
   if(browserChannel)args.push('--browser-channel',browserChannel);
+  if(parser!=='swift')args.push('--parser',parser);
+  if(python)args.push('--python',python);
   if(rebuild)args.push('--rebuild');
   const indexed=run('npm',args,{cwd:root,env,allowFailure:true});
   log('Verifying generated indexes');npm(['run','verify:indexes']);
@@ -112,18 +115,19 @@ export function parseOptions(args){
   const arg=args[i];
   if(arg==='--help'){options.help=true;continue;}
   if(arg==='--rebuild'){options.rebuild=true;continue;}
-  const key={'--site-dir':'siteDir','--browser-channel':'browserChannel'}[arg];
+  const key={'--site-dir':'siteDir','--browser-channel':'browserChannel','--parser':'parser','--python':'python'}[arg];
   if(!key||args[i+1]===undefined||args[i+1].startsWith('--'))throw Error('Unknown or incomplete option: '+arg);
   options[key]=args[++i];
  }
+ if(options.parser&&!['swift','python'].includes(options.parser))throw Error('--parser must be swift or python');
  return options;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{
   const options=parseOptions(process.argv.slice(2));
-  if(options.help)console.log('Usage: npm run update:local -- [--rebuild] [--site-dir PATH] [--browser-channel chrome]\nUpdates both default branches, indexes and verifies PDFs, commits cache and pushes public indexes. Uses installed Chrome by default; pass --browser-channel "" to use Playwright Chromium. Requires macOS, existing Git push credentials and clean tracked working files.');
+  if(options.help)console.log('Usage: npm run update:local -- [--rebuild] [--site-dir PATH] [--browser-channel chrome] [--parser swift|python] [--python PATH]\nUpdates both default branches, indexes and verifies PDFs, commits cache and pushes public indexes. Uses installed Chrome by default; pass --browser-channel "" to use Playwright Chromium. Requires existing Git push credentials and clean tracked working files. Swift (default) requires macOS; --parser python requires requirements-python.txt.');
   else{
-   if(process.platform!=='darwin')throw Error('Local indexing requires macOS with Swift/PDFKit.');
+   if((options.parser||'swift')==='swift'&&process.platform!=='darwin')throw Error('Swift indexing requires macOS. Use --parser python with requirements-python.txt installed for Linux.');
    await updateLocal(options);
   }
  }catch(error){console.error('\nLocal update stopped: '+error.message);process.exitCode=1;}

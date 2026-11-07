@@ -9,3 +9,9 @@ cache/issues/*
 .DS_Store
 output/
 resume.sh
+
+.venv/
+__pycache__/
+*.pyc
+cache-python/
+output-python/

@@ -89,3 +89,5 @@ The updater removes its lock on normal completion or a handled error. An abruptl
 ## Testing without publishing real data
 
 `tests/update-local.test.mjs` uses temporary local bare Git repositories and mocked indexing commands. It checks fast-forward updates, data-only commits, no-op runs, partial failures, verification failure, dirty working trees, existing local commits, and concurrent push rejection. It does not download PDFs, modify the real website checkout, or push to GitHub.
+
+For the alternative parser, install [PYTHON-PARSER.md](PYTHON-PARSER.md) requirements and run `npm run update:local -- --parser python`. Swift remains the default; Python mode does not require a Swift compiler.

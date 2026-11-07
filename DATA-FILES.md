@@ -8,6 +8,7 @@ All text data below uses ordinary **UTF-8 JSON**. A compact file may occupy one 
 
 | File / directory | Repository or location | Tracked in Git? | Purpose / reader |
 |---|---|---|---|
+| `requirements-python.txt` | Indexing repository | Yes | Optional Python parser dependency version; install into an ignored virtual environment. |
 | `settings.json` | Indexing repository | Yes | Search batch/memory settings consumed by the publisher. |
 | `cache/manifest.json` | Indexing repository | Yes | Active source URLs, cache identities, successful extraction times and failed-refresh flags. Read by the indexer and publisher. |
 | `cache/issues/<issue-id>.json` | Indexing repository | Yes | One successfully extracted PDF’s issue metadata, full page text and detected articles. |

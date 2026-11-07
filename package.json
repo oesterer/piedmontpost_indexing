@@ -7,7 +7,8 @@
     "test": "node --test tests/*.test.mjs",
     "verify:indexes": "node scripts/verify-indexes.mjs",
     "publish:site": "node scripts/sync-site.mjs",
-    "update:local": "node scripts/update-local.mjs"
+    "update:local": "node scripts/update-local.mjs",
+    "test:python": "node --test tests/python-parser.test.mjs"
   },
   "devDependencies": {
     "linkedom": "^0.18.13",

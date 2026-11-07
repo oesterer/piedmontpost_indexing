@@ -241,7 +241,24 @@ export async function discoverArchive(context, archiveUrl, password, {maxPages=1
  return [...found.values()];
 }
 
-async function makeExtractor(cacheDir) {
+export async function makeExtractor(cacheDir,{parser='swift',python,run=execute}={}) {
+ if(!['swift','python'].includes(parser))throw Error('parser must be swift or python');
+ if(parser==='python'){
+  let interpreter=python||process.env.PDF_PYTHON;
+  if(!interpreter){
+   const local=path.join(ROOT,'.venv',process.platform==='win32'?'Scripts/python.exe':'bin/python');
+   try{await fs.access(local);interpreter=local;}catch{interpreter=process.platform==='win32'?'python':'python3';}
+  }
+  try{await run(interpreter,['-c','import pdfplumber'],{maxBuffer:1024*1024});}
+  catch(error){throw Error('Python parser is unavailable. Install requirements-python.txt in a virtual environment and select it with --python PATH.\n'+(error.stderr||error.message).trim().slice(-1500));}
+  return async ({input,temporary,url,date})=>{
+   const output=path.join(temporary,'issue.json');
+   try{await run(interpreter,[path.join(ROOT,'scripts/index-pdfs.py'),'--extract-one',input,output,url,date||'-'],{maxBuffer:32*1024*1024});}
+   catch(error){throw Error((error.stderr||error.message).trim().slice(-1500));}
+   return readJSON(output,null);
+  };
+ }
+
  const source=path.join(ROOT,'scripts/index-pdfs.swift'),binary=path.join(cacheDir,'pdf-indexer');
  let ready=false;
  return async ({input,temporary,url,date})=>{
@@ -266,15 +283,16 @@ export async function writeSearchSite(directory,index) {
 }
 
 async function main() {
- const args=process.argv.slice(2),options={cacheDir:path.join(ROOT,'cache'),outputDir:OUTPUT_DIR,archiveUrl:DEFAULT_URL,maxPages:100,limit:Infinity,rebuild:false,headed:false,downloadTimeoutMs:10000,downloadRetries:2};
+ const args=process.argv.slice(2),options={cacheDir:path.join(ROOT,'cache'),outputDir:OUTPUT_DIR,archiveUrl:DEFAULT_URL,maxPages:100,limit:Infinity,rebuild:false,headed:false,parser:'swift',downloadTimeoutMs:10000,downloadRetries:2};
  for(let i=0;i<args.length;i++) {
   const arg=args[i];
-  if(arg==='--help'){console.log('Usage: node scripts/index-archive.mjs [--rebuild] [--limit N] [--headed] [--browser-channel chrome] [--links FILE] [--cache-dir DIR] [--output-dir DIR] [--max-pages N] [--download-timeout-ms 10000] [--retries 2]\nSet PIEDMONT_ARCHIVE_PASSWORD or enter it at the hidden prompt. PDFs are indexed once per source URL path; --rebuild refreshes all discovered issues. Output defaults to output/.');return;}
+  if(arg==='--help'){console.log('Usage: node scripts/index-archive.mjs [--rebuild] [--limit N] [--headed] [--browser-channel chrome] [--parser swift|python] [--python PATH] [--links FILE] [--cache-dir DIR] [--output-dir DIR] [--max-pages N] [--download-timeout-ms 10000] [--retries 2]\nSet PIEDMONT_ARCHIVE_PASSWORD or enter it at the hidden prompt. PDFs are indexed once per source URL path; --rebuild refreshes all discovered issues. Output defaults to output/.');return;}
   if(arg==='--rebuild'){options.rebuild=true;continue;}if(arg==='--headed'){options.headed=true;continue;}
-  const key={'--links':'links','--cache-dir':'cacheDir','--output-dir':'outputDir','--archive-url':'archiveUrl','--max-pages':'maxPages','--limit':'limit','--browser-channel':'browserChannel','--download-timeout-ms':'downloadTimeoutMs','--retries':'downloadRetries'}[arg];
+  const key={'--links':'links','--cache-dir':'cacheDir','--output-dir':'outputDir','--archive-url':'archiveUrl','--max-pages':'maxPages','--limit':'limit','--browser-channel':'browserChannel','--parser':'parser','--python':'python','--download-timeout-ms':'downloadTimeoutMs','--retries':'downloadRetries'}[arg];
   if(!key||!args[i+1])throw Error('Unknown or incomplete option: '+arg);
   const value=args[++i];options[key]=['maxPages','limit','downloadTimeoutMs','downloadRetries'].includes(key)?Number(value):value;
  }
+ if(!['swift','python'].includes(options.parser))throw Error('--parser must be swift or python');
  for(const key of ['limit','maxPages','downloadTimeoutMs'])if(!(options[key]>0)||(!Number.isInteger(options[key])&&options[key]!==Infinity))throw Error(key+' must be a positive integer');
  if(!Number.isInteger(options.downloadRetries)||options.downloadRetries<0)throw Error('retries must be a nonnegative integer');
  options.cacheDir=path.resolve(options.cacheDir);options.outputDir=path.resolve(options.outputDir);
@@ -302,7 +320,7 @@ async function main() {
   }
   // Do not store passwords or browser cookies in the discovery manifest.
   await atomicJSON(path.join(options.cacheDir,'discovered-links.json'),links);
-  const result=await syncIssues({...options,links,download,extract:await makeExtractor(options.cacheDir)});
+  const result=await syncIssues({...options,links,download,extract:await makeExtractor(options.cacheDir,{parser:options.parser,python:options.python})});
   result.index.source=options.archiveUrl;
   if(!result.index.issues.length)throw Error('No issues were indexed; the existing search site was left untouched');
   await writeSearchSite(options.outputDir,result.index);

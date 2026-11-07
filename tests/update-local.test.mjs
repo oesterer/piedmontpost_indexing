@@ -114,3 +114,16 @@ test('parses local update options and rejects missing/unknown arguments',()=>{
  assert.deepEqual(parseOptions(['--rebuild','--site-dir','/tmp/site','--browser-channel','']),{rebuild:true,siteDir:'/tmp/site',browserChannel:''});
  assert.throws(()=>parseOptions(['--site-dir']),/incomplete option/);assert.throws(()=>parseOptions(['--force']),/Unknown/);
 });
+
+
+test('local Python mode forwards the parser and interpreter and selects non-Swift parser tests',async t=>{
+ const f=await fixture(t),mock=mockPipeline(f,{noChanges:true});
+ const run=(program,args,options)=>{
+  if(program==='npm')assert.equal(options.env.PDF_PARSER_TEST_BACKEND,'python');
+  return mock.run(program,args,options);
+ };
+ await updateLocal({...options(f,mock),run,parser:'python',python:'/tmp/alternative-python'});
+ assert(mock.commands.some(c=>c.join(' ')==='npm run index:archive -- --browser-channel chrome --parser python --python /tmp/alternative-python'));
+ assert.deepEqual(parseOptions(['--parser','python','--python','/tmp/python']),{parser:'python',python:'/tmp/python'});
+ assert.throws(()=>parseOptions(['--parser','unknown']),/parser must be/);
+});

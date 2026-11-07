@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
 
-test('PDF headings preserve titles and leave service boxes and staff listings unassigned', {skip:process.platform!=='darwin'},async()=>{
+test('PDF headings preserve titles and leave service boxes and staff listings unassigned', {skip:process.platform!=='darwin'||process.env.PDF_PARSER_TEST_BACKEND==='python'},async()=>{
  const dir=await mkdtemp(path.join(tmpdir(),'post-headlines-'));
  try{
   const source=(await readFile(new URL('../scripts/index-pdfs.swift',import.meta.url),'utf8')).split('// Single-issue mode')[0];
