@@ -2,6 +2,10 @@
 
 This repository contains offline newspaper indexing and automation. The public search website lives separately in **[piedmontpost](https://github.com/oesterer/piedmontpost)** and is served at **https://oesterer.github.io/piedmontpost/**.
 
+## One-command local update
+
+After committing and pushing your code changes, run `npm run update:local` on your Mac. It updates both checkouts, indexes/verifies PDFs, commits the cache, and pushes generated indexes to the public repository. See [LOCAL-UPDATE.md](LOCAL-UPDATE.md) for prerequisites, flags and recovery.
+
 ## Local setup
 
 Keep the repositories side by side:

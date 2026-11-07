@@ -12,6 +12,7 @@ All text data below uses ordinary **UTF-8 JSON**. A compact file may occupy one 
 | `cache/manifest.json` | Indexing repository | Yes | Active source URLs, cache identities, successful extraction times and failed-refresh flags. Read by the indexer and publisher. |
 | `cache/issues/<issue-id>.json` | Indexing repository | Yes | One successfully extracted PDF’s issue metadata, full page text and detected articles. |
 | `cache/discovered-links.json` | Indexing repository | No | Latest discovered link list for inspection; can also inform a manual link-list file. |
+| `cache/local-update.lock` | Indexing repository, while the local updater runs | No | Serializes complete local update/push runs. Separate from the child indexer lock. |
 | `cache/indexer.lock` | Indexing repository, while a job runs | No | Prevents two local indexing processes from modifying the same cache. |
 | `cache/pdf-indexer` | Indexing repository | No | Compiled macOS Swift executable; regenerated when necessary. |
 | `cache/swift-cache/` | Indexing repository | No | Compiler module cache, not newspaper text. |
